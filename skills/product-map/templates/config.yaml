@@ -1,0 +1,11 @@
+# PM harness configuration. See pm/CONVENTIONS.md.
+product_name: <Product name>
+platforms: []                  # any of: web, mobile, api, platform, desktop, cli
+audiences: []                  # e.g. shoppers, merchants, developers
+depth: standard                # quick | standard | deep
+tracker:
+  system: null                 # jira | linear | null (markdown only)
+  project_key: null
+  default_issue_type: Story
+exclude_paths: []              # repo-relative paths the harness must not read
+glossary_overrides: {}

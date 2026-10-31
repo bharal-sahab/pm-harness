@@ -1,0 +1,145 @@
+# Run 1: answers produced from examples/medusa/pm/product only (no source code access).
+# Agent: Cursor agent (Claude). Knowledge base: product-map output before iteration.
+answers:
+  - id: Q01
+    answer: >
+      The checkout attempt fails but nothing is lost: the order that was just created is deleted,
+      reserved stock is released and promo usage is reverted. The storefront gets an HTTP 200 response
+      with `type: "cart"` and the error "Payment authorization failed", so the shopper stays on checkout.
+    citations: [packages/core/core-flows/src/payment/steps/authorize-payment-session.ts:94-99, "packages/medusa/src/api/store/carts/[id]/complete/route.ts:37-73"]
+    pages_used: [journeys/checkout.md]
+    confidence: high
+  - id: Q02
+    answer: >
+      Yes. Guest checkout is the default and no account is needed. The email used at checkout creates a
+      guest customer record (has_account: false) that the order is attached to.
+    citations: [packages/core/core-flows/src/cart/steps/find-or-create-customer.ts]
+    pages_used: [journeys/checkout.md, capabilities.md]
+    confidence: high
+  - id: Q03
+    answer: >
+      No. There is one payment session per cart; starting a new one deletes the others, so split payments
+      are not supported.
+    citations: [packages/core/core-flows/src/payment-collection/workflows/create-payment-session.ts:218-224]
+    pages_used: [capabilities.md]
+    confidence: high
+  - id: Q04
+    answer: >
+      The shopper gets the same order back; Medusa never creates a duplicate. The cart is locked while it
+      completes and an existing cart-to-order link short-circuits a second attempt.
+    citations: [packages/core/core-flows/src/cart/workflows/complete-cart.ts:388-411]
+    pages_used: [journeys/checkout.md]
+    confidence: high
+  - id: Q05
+    answer: >
+      Stock is checked when adding to cart (unless backorders are allowed or the variant does not track
+      inventory). If it sells out later, the shopper finds out when placing the order: reserving stock fails,
+      the order is deleted and payment is never attempted. They get a generic HTTP error, not the friendly
+      cart-plus-error response used for payment failures.
+    citations: [packages/core/core-flows/src/cart/steps/confirm-inventory.ts:76-97, packages/modules/inventory/src/services/inventory-module.ts, "packages/medusa/src/api/store/carts/[id]/complete/route.ts:37-43"]
+    pages_used: [capabilities.md, journeys/checkout.md]
+    confidence: high
+  - id: Q06
+    answer: >
+      No order confirmation email is sent by default. Medusa emits an `order.placed` signal; a notification
+      provider (for example SendGrid) plus a listener is needed to send email.
+    citations: [packages/core/utils/src/core-flows/events.ts, packages/medusa/src/subscribers/configurable-notifications.ts]
+    pages_used: [integrations.md, journeys/checkout.md]
+    confidence: high
+  - id: Q07
+    answer: >
+      An order cannot be canceled when it is already completed (use returns instead), when it is already
+      canceled, or when it has any fulfillment that is not canceled. Shipped fulfillments cannot be canceled
+      at all, so an order with a shipped package cannot be canceled.
+    citations: [packages/core/core-flows/src/order/workflows/cancel-order.ts:71-104, packages/core/core-flows/src/order/workflows/cancel-order-fulfillment.ts]
+    pages_used: [journeys/order-fulfillment.md]
+    confidence: high
+  - id: Q08
+    answer: >
+      A claim fixes the merchant's fault (missing, wrong or broken items) with a refund or replacement.
+      An exchange is the customer's choice to swap items and needs at least one item coming back and one
+      going out; it may require a payment difference.
+    citations: [packages/core/utils/src/order/status.ts, packages/core/core-flows/src/order/workflows/exchange/confirm-exchange-request.ts]
+    pages_used: [journeys/returns-claims-exchanges.md, domain-glossary.md]
+    confidence: high
+  - id: Q09
+    answer: >
+      Yes, shoppers can request a return through the Store API with no login; knowing the order ID acts as
+      the secret. Note the open question about shopper-supplied return shipping prices.
+    citations: [packages/medusa/src/api/store/returns/route.ts]
+    pages_used: [capabilities.md, open-questions.md]
+    confidence: high
+  - id: Q10
+    answer: >
+      Amount or percentage off products or the whole order, buy X get Y, and free or discounted shipping.
+      They can be codes or automatic and targeted by customer group, region, country, sales channel and
+      product attributes.
+    citations: [packages/core/utils/src/promotion/index.ts, packages/admin/dashboard/src/routes/promotions/promotion-create/components/create-promotion-form/templates.ts]
+    pages_used: [capabilities.md, journeys/promotions-at-checkout.md]
+    confidence: high
+  - id: Q11
+    answer: >
+      A campaign budget caps total spend or total uses, or spend or uses per customer. When applying a
+      promotion would exceed the budget, it is not applied.
+    citations: [packages/modules/promotion/src/utils/compute-actions/usage.ts]
+    pages_used: [capabilities.md, journeys/promotions-at-checkout.md]
+    confidence: high
+  - id: Q12
+    answer: >
+      Sale prices apply only if lower than the original price; override prices always win.
+    citations: [packages/modules/pricing/src/services/pricing-module.ts:429-456]
+    pages_used: [capabilities.md, domain-glossary.md]
+    confidence: high
+  - id: Q13
+    answer: >
+      Stripe, including local methods Bancontact, BLIK, giropay, iDEAL, Przelewy24, PromptPay and OXXO.
+    citations: [packages/modules/providers/payment-stripe/src/index.ts]
+    pages_used: [integrations.md]
+    confidence: high
+  - id: Q14
+    answer: >
+      No storefront or mobile app is in the repository. A separate Next.js starter is downloaded by the
+      project creator; mobile apps would call the Store API.
+    citations: [packages/cli/create-medusa-app/src/utils/clone-repo.ts]
+    pages_used: [OVERVIEW.md]
+    confidence: high
+  - id: Q15
+    answer: >
+      PostgreSQL is required. Redis is optional but recommended for production, and needed when running
+      more than one server.
+    citations: [packages/core/utils/src/common/define-config.ts]
+    pages_used: [integrations.md, how-it-is-built.md]
+    confidence: high
+  - id: Q16
+    answer: >
+      A sales channel is a place you sell (web store, app, POS, B2B portal) that decides which products and
+      stock apply. A storefront's publishable key is linked to channels, and carts take their channel from it.
+    citations: [packages/medusa/src/api/utils/middlewares/common/ensure-pub-key-sales-channel-match.ts]
+    pages_used: [capabilities.md, domain-glossary.md]
+    confidence: high
+  - id: Q17
+    answer: >
+      translation, index_engine, view_configurations, caching and backend_hmr. All default to off.
+    citations: [packages/medusa/src/feature-flags/translation.ts, packages/medusa/src/feature-flags/index-engine.ts]
+    pages_used: [integrations.md]
+    confidence: high
+  - id: Q18
+    answer: >
+      The knowledge base does not say. It only states that unpublished products cannot be added to a cart.
+    citations: [packages/core/core-flows/src/cart/workflows/get-variants-and-items-with-prices.ts:163-176]
+    pages_used: [capabilities.md]
+    confidence: unknown
+  - id: Q19
+    answer: >
+      All payment sessions are deleted when the cart total changes, and the storefront must start payment
+      again.
+    citations: [packages/core/core-flows/src/cart/workflows/refresh-payment-collection.ts:124-172]
+    pages_used: [capabilities.md, journeys/checkout.md]
+    confidence: high
+  - id: Q20
+    answer: >
+      Staff are invited by email and become users by accepting; there is no "create user" API. Invites
+      expire after 24 hours by default.
+    citations: [packages/medusa/src/api/admin/users/route.ts, packages/modules/user/src/services/user-module.ts]
+    pages_used: [capabilities.md]
+    confidence: high

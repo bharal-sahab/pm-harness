@@ -1,0 +1,67 @@
+generated_by: product-map
+harness_version: "0.1.0"
+source_repo: https://github.com/medusajs/medusa
+source_commit: 2cfefbd370fd133e629b8d545a28460af5ffd01b
+generated_at: 2026-10-30
+depth: standard
+exclude_paths: see ../config.yaml (43 Enterprise-licensed paths plus www)
+page_sources:
+  capabilities.md:
+    - packages/medusa/src/api
+    - packages/core/core-flows/src
+    - packages/admin/dashboard/src/routes
+    - packages/modules
+  journeys/checkout.md:
+    - packages/core/core-flows/src/cart
+    - packages/core/core-flows/src/payment
+    - packages/core/core-flows/src/payment-collection
+    - packages/medusa/src/api/store/carts
+    - packages/medusa/src/api/store/payment-collections
+    - packages/modules/inventory/src/services
+  journeys/customer-accounts.md:
+    - packages/medusa/src/api/auth
+    - packages/medusa/src/api/store/customers
+    - packages/medusa/src/api/store/orders
+    - packages/core/core-flows/src/customer
+    - packages/core/core-flows/src/auth
+    - packages/core/core-flows/src/order/workflows/transfer
+  journeys/order-fulfillment.md:
+    - packages/core/core-flows/src/order/workflows
+    - packages/core/core-flows/src/order/utils
+    - packages/modules/providers/fulfillment-manual
+  journeys/returns-claims-exchanges.md:
+    - packages/core/core-flows/src/order/workflows/return
+    - packages/core/core-flows/src/order/workflows/claim
+    - packages/core/core-flows/src/order/workflows/exchange
+    - packages/core/core-flows/src/order/workflows/order-edit
+    - packages/modules/order/src/utils/actions
+    - packages/medusa/src/api/store/returns
+  journeys/promotions-at-checkout.md:
+    - packages/modules/promotion
+    - packages/core/core-flows/src/promotion
+    - packages/core/core-flows/src/cart/workflows/update-cart-promotions.ts
+    - packages/medusa/src/api/admin/promotions
+  data-model.md:
+    - packages/modules/*/src/models
+    - packages/core/utils/src/order
+    - packages/core/utils/src/payment
+    - packages/modules/link-modules/src/definitions
+  integrations.md:
+    - packages/modules/providers
+    - packages/medusa/src/feature-flags
+    - packages/core/utils/src/common/define-config.ts
+    - packages/core/utils/src/core-flows/events.ts
+  how-it-is-built.md:
+    - packages/core/framework
+    - packages/core/workflows-sdk
+    - packages/medusa/src/loaders
+    - package.json
+  domain-glossary.md:
+    - packages/modules/*/src/models
+  OVERVIEW.md:
+    - packages
+not_covered:
+  - Enterprise RBAC and SSO (license-restricted)
+  - Documentation sites under www/
+  - Analytics, caching and locking module internals (summarized only)
+  - Tax rule evaluation details and shipping option rule evaluation (medium confidence)

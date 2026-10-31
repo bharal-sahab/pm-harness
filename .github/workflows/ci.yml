@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  skills:
+    name: Validate skills and scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      # No pip install on purpose: skill scripts must run on a bare Python.
+      - name: Validate skills (spec, links, vendored copies)
+        run: python3 scripts/validate.py
+
+      - name: Check the example pm/ folder
+        run: python3 scripts/check_pm.py examples/medusa/pm --strict
+
+      - name: Smoke-test skill scripts on the example initiative
+        env:
+          INIT: examples/medusa/pm/initiatives/promo-code-feedback
+        run: |
+          set -euo pipefail
+          python3 scripts/pm_status.py examples/medusa/pm
+          python3 skills/epics-and-stories/scripts/trace.py "$INIT"
+          python3 skills/test-plan/scripts/ac_coverage.py "$INIT"
+          python3 skills/work-sync/scripts/sync.py plan "$INIT"
+          python3 skills/work-sync/scripts/sync.py csv "$INIT" > /dev/null
+          python3 skills/acceptance-check/scripts/diff_map.py "$INIT" \
+            --diff-file examples/medusa/sample-pr/promo-reasons.diff
+          python3 skills/status-update/scripts/initiative_facts.py "$INIT"
+          python3 skills/release-notes/scripts/release_scope.py "$INIT"
+          printf 'packages/medusa/src/api/store/carts/[id]/promotions/route.ts\n' > /tmp/changed.txt
+          python3 skills/product-map-refresh/scripts/changed_pages.py examples/medusa/pm \
+            --changed-files /tmp/changed.txt
+          python3 skills/ai-evals/scripts/eval_stats.py --help > /dev/null
+          python3 skills/product-map/scripts/survey.py . > /dev/null
+
+      - name: Shell scripts parse
+        run: |
+          bash -n scripts/install.sh
+          bash -n evals/run-cross-agent.sh
+
+      - name: Install skills into a scratch repo
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/product
+          scripts/install.sh --target /tmp/product --copy --agents universal,claude
+          test "$(ls /tmp/product/.agents/skills | wc -l)" -eq "$(ls skills | wc -l)"
+          test -f /tmp/product/.claude/skills/product-map/SKILL.md
+          python3 /tmp/product/.agents/skills/pm-start/scripts/pm_status.py /tmp/product/pm
+
+  example-citations:
+    name: Example cites real Medusa code
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - run: pip install pyyaml
+
+      - name: Download Medusa at the commit the example was built from
+        run: |
+          set -euo pipefail
+          sha=$(sed -n 's/^source_commit: *//p' examples/medusa/pm/product/_meta.yaml)
+          echo "Medusa commit: $sha"
+          mkdir -p /tmp/medusa
+          curl -sSfL "https://codeload.github.com/medusajs/medusa/tar.gz/$sha" \
+            | tar -xz -C /tmp/medusa --strip-components=1
+
+      - name: Every citation in the example resolves
+        run: python3 scripts/check_pm.py examples/medusa/pm --repo /tmp/medusa --strict
+
+      - name: Golden questions still pass (latest run)
+        run: |
+          python3 evals/run_golden.py grade evals/medusa/golden-questions.yaml \
+            evals/results/medusa-run2/answers.yaml --repo /tmp/medusa

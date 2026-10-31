@@ -1,0 +1,6 @@
+# Pilot product checkouts used to generate examples/ (large, third-party)
+.pilots/
+
+__pycache__/
+*.pyc
+.DS_Store

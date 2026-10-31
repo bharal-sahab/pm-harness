@@ -1,0 +1,16 @@
+generated_by: product-map
+harness_version: "0.1.0"
+source_commit: <sha>
+generated_at: <YYYY-MM-DD>
+depth: standard
+exclude_paths: []
+# page -> folders it was built from; product-map-refresh uses this to scope updates
+page_sources:
+  capabilities.md: []
+  data-model.md: []
+  integrations.md: []
+  how-it-is-built.md: []
+  domain-glossary.md: []
+  OVERVIEW.md: []
+  journeys/<slug>.md: []
+not_covered: []

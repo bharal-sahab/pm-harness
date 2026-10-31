@@ -1,0 +1,125 @@
+diff --git a/packages/medusa/src/api/store/carts/[id]/promotions/route.ts b/packages/medusa/src/api/store/carts/[id]/promotions/route.ts
+--- a/packages/medusa/src/api/store/carts/[id]/promotions/route.ts
++++ b/packages/medusa/src/api/store/carts/[id]/promotions/route.ts
+@@ -6,12 +6,12 @@
+ 
+ export const POST = async (
+   req: MedusaRequest<HttpTypes.StoreCartAddPromotion, HttpTypes.SelectParams>,
+-  res: MedusaResponse<HttpTypes.StoreCartResponse>
++  res: MedusaResponse<HttpTypes.StoreCartAddPromotionResponse>
+ ) => {
+   const we = req.scope.resolve(Modules.WORKFLOW_ENGINE)
+   const payload = req.validatedBody
+ 
+-  await we.run(updateCartPromotionsWorkflowId, {
++  const { result } = await we.run(updateCartPromotionsWorkflowId, {
+     input: {
+       promo_codes: payload.promo_codes,
+       cart_id: req.params.id,
+@@ -29,7 +29,10 @@
+     req.queryConfig.fields
+   )
+ 
+-  res.status(200).json({ cart })
++  res.status(200).json({
++    cart,
++    skipped_promo_codes: result?.skipped_promo_codes ?? [],
++  })
+ }
+ 
+ export const DELETE = async (
+diff --git a/packages/core/types/src/http/cart/store/responses.ts b/packages/core/types/src/http/cart/store/responses.ts
+--- a/packages/core/types/src/http/cart/store/responses.ts
++++ b/packages/core/types/src/http/cart/store/responses.ts
+@@ -7,6 +7,16 @@
+    * The cart's details.
+    */
+   cart: StoreCart
++}
++
++export interface StoreCartAddPromotionResponse extends StoreCartResponse {
++  /**
++   * Codes that were not applied, with the reason.
++   */
++  skipped_promo_codes: {
++    code: string
++    reason: "promotion_limit_exceeded" | "campaign_budget_exceeded"
++  }[]
+ }
+ 
+ export type StoreCompleteCartResponse =
+diff --git a/packages/core/js-sdk/src/store/index.ts b/packages/core/js-sdk/src/store/index.ts
+--- a/packages/core/js-sdk/src/store/index.ts
++++ b/packages/core/js-sdk/src/store/index.ts
+@@ -889,7 +889,7 @@
+       query?: SelectParams,
+       headers?: ClientHeaders
+     ) => {
+-      return this.client.fetch<HttpTypes.StoreCartResponse>(
++      return this.client.fetch<HttpTypes.StoreCartAddPromotionResponse>(
+         `/store/carts/${cartId}/promotions`,
+         {
+           method: "POST",
+diff --git a/integration-tests/http/__tests__/cart/store/promotion-feedback.spec.ts b/integration-tests/http/__tests__/cart/store/promotion-feedback.spec.ts
+new file mode 100644
+--- /dev/null
++++ b/integration-tests/http/__tests__/cart/store/promotion-feedback.spec.ts
+@@ -0,0 +1,58 @@
++import { medusaIntegrationTestRunner } from "@medusajs/test-utils"
++import {
++  createAdminUser,
++  adminHeaders,
++} from "../../../../helpers/create-admin-user"
++import { setupCartWithPromotions } from "../../../../helpers/promotions"
++
++jest.setTimeout(100000)
++
++medusaIntegrationTestRunner({
++  testSuite: ({ dbConnection, api, getContainer }) => {
++    describe("POST /store/carts/:id/promotions - skipped codes", () => {
++      beforeEach(async () => {
++        await createAdminUser(dbConnection, adminHeaders, getContainer())
++      })
++
++      it("lists a code whose usage limit is reached", async () => {
++        const { cart, storeHeaders } = await setupCartWithPromotions(api, {
++          promotions: [{ code: "SUMMER10", limit: 100, used: 100 }],
++        })
++
++        const response = await api.post(
++          `/store/carts/${cart.id}/promotions`,
++          { promo_codes: ["SUMMER10"] },
++          storeHeaders
++        )
++
++        expect(response.status).toEqual(200)
++        expect(response.data.cart.promotions).toEqual([])
++        expect(response.data.skipped_promo_codes).toEqual([
++          { code: "SUMMER10", reason: "promotion_limit_exceeded" },
++        ])
++      })
++
++      it("applies valid codes and lists only the failed one", async () => {
++        const { cart, storeHeaders } = await setupCartWithPromotions(api, {
++          promotions: [
++            { code: "SUMMER10", limit: 100, used: 100 },
++            { code: "WELCOME5" },
++          ],
++        })
++
++        const response = await api.post(
++          `/store/carts/${cart.id}/promotions`,
++          { promo_codes: ["SUMMER10", "WELCOME5"] },
++          storeHeaders
++        )
++
++        expect(response.data.cart.promotions).toEqual([
++          expect.objectContaining({ code: "WELCOME5" }),
++        ])
++        expect(response.data.skipped_promo_codes).toEqual([
++          { code: "SUMMER10", reason: "promotion_limit_exceeded" },
++        ])
++      })
++    })
++  },
++})

@@ -1,0 +1,244 @@
+# Golden questions for the Medusa pilot.
+#
+# Each question is something a new PM on a commerce team would actually ask in week one.
+# Expected answers were established by reading the Medusa source at the pinned commit,
+# independently of the generated knowledge base.
+#
+# key_points: each point passes when the answer contains any of its `any` phrases
+#             (case-insensitive). This is a cheap proxy; the rubric in evals/rubric.md
+#             and a human or LLM judge are authoritative.
+# sources:    an answer is "grounded" when it cites at least one of these paths
+#             (a citation matches when it starts with, or is contained in, a listed path).
+
+product: medusa
+source_repo: https://github.com/medusajs/medusa
+source_commit: 2cfefbd370fd133e629b8d545a28460af5ffd01b
+
+questions:
+  - id: Q01
+    question: What happens when a shopper's card is declined at checkout?
+    key_points:
+      - point: No order is kept
+        any: ["no order", "is deleted", "deletes the", "undo", "not created", "rolled back"]
+      - point: The response says the cart is still a cart, with an error
+        any: ["type: \"cart\"", "type cart", "`type: \"cart\"`", "cart plus error", "cart and an error"]
+      - point: Reserved stock and promotion usage are released
+        any: ["releases stock", "release", "reverts promo", "stock is released"]
+    sources:
+      - packages/core/core-flows/src/payment/steps/authorize-payment-session.ts
+      - packages/medusa/src/api/store/carts/[id]/complete/route.ts
+      - packages/core/core-flows/src/cart/workflows/complete-cart.ts
+
+  - id: Q02
+    question: Can a shopper check out without creating an account?
+    key_points:
+      - point: Yes, guest checkout is the default
+        any: ["guest checkout is the default", "no account", "without an account", "yes"]
+      - point: A guest customer record is created from the email
+        any: ["guest customer", "has_account: false", "guest record"]
+    sources:
+      - packages/core/core-flows/src/cart/steps/find-or-create-customer.ts
+
+  - id: Q03
+    question: Can a shopper split a payment across two cards or methods?
+    key_points:
+      - point: No, one payment session per cart
+        any: ["no split", "one payment", "not supported", "single payment"]
+      - point: Starting a new session deletes the previous ones
+        any: ["deletes", "replaces", "removes"]
+    sources:
+      - packages/core/core-flows/src/payment-collection/workflows/create-payment-session.ts
+
+  - id: Q04
+    question: What happens if a shopper clicks "Place order" twice?
+    key_points:
+      - point: Only one order is created; the same order is returned
+        any: ["same order", "no duplicate", "never a duplicate", "not create a second"]
+      - point: The cart is locked during completion
+        any: ["lock"]
+    sources:
+      - packages/core/core-flows/src/cart/workflows/complete-cart.ts
+      - packages/medusa/src/api/store/carts/[id]/complete/route.ts
+
+  - id: Q05
+    question: If an item sells out while it is in the cart, when does the shopper find out and what do they see?
+    key_points:
+      - point: Stock is checked when adding to cart
+        any: ["add-to-cart", "adding", "when added"]
+      - point: Stock is checked again when the order is placed, via reservation
+        any: ["reserv", "at checkout", "at completion", "sold out at checkout"]
+      - point: At checkout it is a plain error, not the friendly cart response, and no payment is attempted
+        any: ["http error", "generic error", "payment is never attempted", "not the friendly"]
+    sources:
+      - packages/core/core-flows/src/cart/steps/confirm-inventory.ts
+      - packages/core/core-flows/src/cart/steps/reserve-inventory.ts
+      - packages/modules/inventory/src/services/inventory-module.ts
+      - packages/medusa/src/api/store/carts/[id]/complete/route.ts
+
+  - id: Q06
+    question: Does Medusa send an order confirmation email out of the box?
+    key_points:
+      - point: No; it emits an order placed signal
+        any: ["no order confirmation email", "not sent by default", "no built-in", "only emits", "order.placed"]
+      - point: A notification provider and a listener are needed
+        any: ["notification provider", "listener", "subscriber"]
+    sources:
+      - packages/core/utils/src/core-flows/events.ts
+      - packages/medusa/src/subscribers/configurable-notifications.ts
+
+  - id: Q07
+    question: When is a merchant NOT allowed to cancel an order?
+    key_points:
+      - point: Completed orders cannot be canceled (use returns)
+        any: ["completed"]
+      - point: Orders with any fulfillment that is not canceled cannot be canceled
+        any: ["fulfillment"]
+      - point: Shipped fulfillments cannot be canceled
+        any: ["shipped"]
+    sources:
+      - packages/core/core-flows/src/order/workflows/cancel-order.ts
+      - packages/core/core-flows/src/order/workflows/cancel-order-fulfillment.ts
+
+  - id: Q08
+    question: What is the difference between a claim and an exchange?
+    key_points:
+      - point: A claim is for merchant fault, refund or replace
+        any: ["merchant fault", "merchant's fault", "refund or replace"]
+      - point: An exchange is a customer swap needing items in and out
+        any: ["swap", "one item coming back and one going out", "in and one item out", "inbound and outbound"]
+    sources:
+      - packages/modules/order/src/models/claim.ts
+      - packages/modules/order/src/models/exchange.ts
+      - packages/core/core-flows/src/order/workflows/exchange/confirm-exchange-request.ts
+      - packages/core/utils/src/order/status.ts
+
+  - id: Q09
+    question: Can shoppers start a return themselves, and do they need to log in?
+    key_points:
+      - point: Yes, through the Store API
+        any: ["yes", "store api", "self-service"]
+      - point: No login; the order ID acts as the secret
+        any: ["no login", "without logging in", "order id acts", "order id is"]
+    sources:
+      - packages/medusa/src/api/store/returns/route.ts
+
+  - id: Q10
+    question: What kinds of promotions can a merchant create?
+    key_points:
+      - point: Standard discounts and buy X get Y
+        any: ["buy x get y", "buyget", "buy-get"]
+      - point: Fixed amount or percentage
+        any: ["percentage"]
+      - point: Can target items, the whole order, or shipping
+        any: ["shipping"]
+    sources:
+      - packages/core/utils/src/promotion/index.ts
+      - packages/modules/promotion/src/models/application-method.ts
+      - packages/admin/dashboard/src/routes/promotions/promotion-create/components/create-promotion-form/templates.ts
+
+  - id: Q11
+    question: How do campaign budgets work, and what happens when a budget runs out?
+    key_points:
+      - point: Budgets cap total spend or uses, optionally per customer
+        any: ["spend", "usage", "uses"]
+      - point: When exceeded the promotion is not applied
+        any: ["not applied", "no longer applies", "stops applying"]
+    sources:
+      - packages/modules/promotion/src/utils/compute-actions/usage.ts
+      - packages/modules/promotion/src/models/campaign-budget.ts
+
+  - id: Q12
+    question: What is the difference between a sale price list and an override price list?
+    key_points:
+      - point: Sale applies only when cheaper than the regular price
+        any: ["only if lower", "only when cheaper", "lower than"]
+      - point: Override always applies
+        any: ["always"]
+    sources:
+      - packages/modules/pricing/src/services/pricing-module.ts
+
+  - id: Q13
+    question: Which payment providers work out of the box?
+    key_points:
+      - point: Stripe, including local payment methods
+        any: ["stripe"]
+      - point: Local methods such as iDEAL or Bancontact
+        any: ["ideal", "bancontact", "blik", "oxxo"]
+    sources:
+      - packages/modules/providers/payment-stripe
+
+  - id: Q14
+    question: Does Medusa come with a storefront or a mobile app?
+    key_points:
+      - point: No storefront in the repo; a separate Next.js starter exists
+        any: ["next.js starter", "separate", "no storefront"]
+      - point: No mobile app; apps would use the Store API
+        any: ["no mobile", "mobile app"]
+    sources:
+      - packages/cli/create-medusa-app/src/utils/clone-repo.ts
+
+  - id: Q15
+    question: What infrastructure is needed to run Medusa in production?
+    key_points:
+      - point: PostgreSQL is required
+        any: ["postgres"]
+      - point: Redis is recommended for production or multiple servers
+        any: ["redis"]
+    sources:
+      - packages/core/utils/src/common/define-config.ts
+
+  - id: Q16
+    question: What is a sales channel, and how does a storefront end up in one?
+    key_points:
+      - point: A sales channel is a place you sell that scopes products and stock
+        any: ["place you sell", "where you sell", "web store, app, pos"]
+      - point: The storefront's publishable key is linked to channels
+        any: ["publishable key"]
+    sources:
+      - packages/medusa/src/api/utils/middlewares/common/ensure-pub-key-sales-channel-match.ts
+      - packages/modules/sales-channel/src/models/sales-channel.ts
+      - packages/core/framework/src/http/middlewares/ensure-publishable-api-key.ts
+
+  - id: Q17
+    question: Which features are behind feature flags, and are they on by default?
+    key_points:
+      - point: Translation is flagged
+        any: ["translation"]
+      - point: Index engine and view configurations are flagged
+        any: ["index_engine", "index engine", "view_configurations", "view configurations"]
+      - point: All default to off
+        any: ["off", "default to off", "disabled by default"]
+    sources:
+      - packages/medusa/src/feature-flags
+
+  - id: Q18
+    question: What happens if a shopper tries to add a variant that has no price in their currency or region?
+    key_points:
+      - point: It cannot be added; the shopper gets an error
+        any: ["cannot be added", "can't be added", "rejected", "error"]
+      - point: The reason is a missing price
+        any: ["no price", "missing price", "without a price", "does not have a price", "do not have a price"]
+    sources:
+      - packages/core/core-flows/src/cart/workflows/get-variants-and-items-with-prices.ts
+      - packages/core/core-flows/src/cart/steps/validate-line-item-prices.ts
+
+  - id: Q19
+    question: What happens if the shopper changes the cart after starting payment?
+    key_points:
+      - point: Existing payment sessions are deleted
+        any: ["deleted", "wipes", "removed"]
+      - point: The shopper must start payment again
+        any: ["start payment again", "restart", "new session", "start again"]
+    sources:
+      - packages/core/core-flows/src/cart/workflows/refresh-payment-collection.ts
+
+  - id: Q20
+    question: How do new staff members get admin access, and how long do invites last?
+    key_points:
+      - point: Through invites; no direct create-user API
+        any: ["invite"]
+      - point: Invites expire after 24 hours by default
+        any: ["24 hours", "24h", "one day"]
+    sources:
+      - packages/modules/user/src/services/user-module.ts
+      - packages/medusa/src/api/admin/users/route.ts
